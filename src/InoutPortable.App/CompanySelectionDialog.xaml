@@ -1,0 +1,32 @@
+<Window x:Class="InoutPortable.App.CompanySelectionDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Seleccionar empresa de a3ERP" Height="440" Width="640"
+        WindowStartupLocation="CenterOwner" Background="White">
+    <Grid Margin="18">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10"
+                   Text="Empresas registradas en la base de datos de sistema de a3ERP. Al elegir una se usará su base de datos de datos automáticamente." />
+
+        <DataGrid x:Name="CompaniesGrid" Grid.Row="1" MouseDoubleClick="Companies_DoubleClick">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Empresa" Binding="{Binding Description}" Width="*" />
+                <DataGridTextColumn Header="Base de datos" Binding="{Binding DatabaseName}" Width="160" />
+                <DataGridTextColumn Header="Servidor" Binding="{Binding ServerName}" Width="150" />
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <Grid Grid.Row="2" Margin="0,12,0,0">
+            <TextBlock x:Name="StatusText" VerticalAlignment="Center" Style="{StaticResource Muted}" />
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Cancelar" Style="{StaticResource Secondary}" Click="Cancel_Click" />
+                <Button x:Name="UseBtn" Content="Usar empresa" Margin="10,0,0,0" Click="Use_Click" IsEnabled="False" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>

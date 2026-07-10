@@ -52,7 +52,12 @@
                             </StackPanel>
                         </Grid>
 
-                        <TextBlock Text="Base de datos" Style="{StaticResource FieldLabel}" />
+                        <Grid>
+                            <TextBlock Text="Base de datos" Style="{StaticResource FieldLabel}" />
+                            <Button x:Name="CompanyBtn" Content="Elegir empresa a3ERP…" Style="{StaticResource Secondary}"
+                                    HorizontalAlignment="Right" Padding="10,3" FontSize="11" Margin="0,-4,0,0"
+                                    Click="ChooseCompany_Click" />
+                        </Grid>
                         <TextBox x:Name="DbBox" />
 
                         <CheckBox x:Name="IntegratedBox" Content="Usar autenticación de Windows"

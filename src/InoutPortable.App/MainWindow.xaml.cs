@@ -84,6 +84,35 @@ public partial class MainWindow : Window
         }
     }
 
+    private void ChooseCompany_Click(object sender, RoutedEventArgs e)
+    {
+        var settings = ReadForm();
+        if (string.IsNullOrWhiteSpace(settings.Host))
+        {
+            ConnResult.Foreground = Err;
+            ConnResult.Text = "Introduce primero el servidor (y usuario/contraseña) para leer las empresas de a3ERP.";
+            return;
+        }
+
+        var dlg = new CompanySelectionDialog(settings) { Owner = this };
+        if (dlg.ShowDialog() == true && dlg.Selected is { } company)
+        {
+            DbBox.Text = company.DatabaseName;
+
+            // If the company points to a specific SQL Server, adopt it (server\instance).
+            if (!string.IsNullOrWhiteSpace(company.ServerName))
+            {
+                var parts = company.ServerName.Split('\\', 2);
+                HostBox.Text = parts[0];
+                InstanceBox.Text = parts.Length > 1 ? parts[1] : "";
+                PortBox.Text = "";
+            }
+
+            ConnResult.Foreground = Muted;
+            ConnResult.Text = $"Empresa seleccionada: {company.Description} → base de datos '{company.DatabaseName}'.";
+        }
+    }
+
     private void Integrated_Changed(object sender, RoutedEventArgs e) => UpdateIntegratedState();
 
     private void UpdateIntegratedState()
