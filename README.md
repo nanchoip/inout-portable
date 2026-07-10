@@ -168,6 +168,17 @@ dentro del propio ejecutable.
 
 - **Nombre de hoja = nombre de tabla a3ERP** (p. ej. `ARTICULO`, `CLIENTES`, `CUENTAS`, `AMORTIZA`,
   `APUNTES`). Se admite `Esquema.Tabla`; si el nombre existe en varios esquemas, hay que cualificarlo.
+- **Nombres amigables** — también puedes nombrar la hoja con el nombre natural (con acentos y en
+  plural) y se asocia sola a la tabla real de a3ERP (`A3ErpTableAliases`): `Clientes`→`CLIENTES`,
+  `Artículos`/`Productos`→`ARTICULO`, `Cuentas`→`CUENTAS`, `Almacenes`→`ALMACEN`,
+  `Familias`→`FAMILIAS`, `Bancos`→`BANCOS`, `Amortizaciones`→`AMORTIZA`, `Asientos`/`Diario`→`APUNTES`.
+- **Vistas y maestros repartidos** — en a3ERP moderno algunos maestros (p. ej. **`CLIENTES`**) son
+  **vistas no actualizables** (el cliente se reparte entre `__CLIENTES`, `__ORGANIZACION`, …). El
+  importador **detecta** esos objetos y **bloquea la hoja con un aviso claro**, porque crearlos
+  requiere la lógica interna de a3ERP (usa su importación nativa para esa entidad). Los maestros que
+  sí son tabla única con clave (ARTICULO, CUENTAS, ALMACEN, FAMILIAS, BANCOS, AMORTIZA…) se importan
+  con normalidad. Nota: si la clave real es un **id interno** distinto del código del Excel (p. ej.
+  `CUENTAS` usa `IDCUENTA`), habrá que elegir la columna clave manualmente (mejora prevista).
 - **Cabecera = nombres de columna/campo** exactos (no distingue mayúsculas/minúsculas). Si la
   plantilla trae una fila de etiquetas encima de los códigos de campo, se detecta automáticamente.
 - Formatos admitidos: **`.xls` (a3ERP) y `.xlsx`**, detectados por contenido.

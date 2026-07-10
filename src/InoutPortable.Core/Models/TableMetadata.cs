@@ -51,6 +51,18 @@ public sealed class TableMetadata
     /// <summary>Primary key column names in key order. Empty when the table has no detectable PK.</summary>
     public required IReadOnlyList<string> PrimaryKey { get; init; }
 
+    /// <summary>True when the destination object is a view rather than a base table.</summary>
+    public bool IsView { get; init; }
+
+    /// <summary>False when the object cannot be written to (e.g. a non-updatable multi-table a3ERP view).</summary>
+    public bool IsWritableTarget { get; init; } = true;
+
+    /// <summary>Explains why the object is not writable, shown to the user when <see cref="IsWritableTarget"/> is false.</summary>
+    public string? NotWritableReason { get; init; }
+
+    /// <summary>Friendly sheet name that was mapped to this object (e.g. "Clientes" -> "CLIENTES"), if any.</summary>
+    public string? MatchedVia { get; init; }
+
     public bool HasPrimaryKey => PrimaryKey.Count > 0;
 
     public string FullName => $"[{Schema}].[{Name}]";

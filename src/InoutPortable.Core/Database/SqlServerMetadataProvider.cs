@@ -43,18 +43,23 @@ public sealed class SqlServerMetadataProvider
         await using var conn = CreateConnection();
         await conn.OpenAsync(ct);
 
-        var matches = new List<(string Schema, string Name)>();
-        await using (var cmd = conn.CreateCommand())
-        {
-            cmd.CommandText = schema is null
-                ? "SELECT TABLE_SCHEMA, TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE='BASE TABLE' AND TABLE_NAME=@n"
-                : "SELECT TABLE_SCHEMA, TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE='BASE TABLE' AND TABLE_NAME=@n AND TABLE_SCHEMA=@s";
-            cmd.Parameters.AddWithValue("@n", name);
-            if (schema is not null) cmd.Parameters.AddWithValue("@s", schema);
+        // Try the name as given; if nothing matches, try the friendly-name alias (Clientes -> CLIENTES, etc.).
+        var matches = await FindMatchesAsync(conn, schema, name, ct);
+        string? matchedVia = null;
 
-            await using var r = await cmd.ExecuteReaderAsync(ct);
-            while (await r.ReadAsync(ct))
-                matches.Add((r.GetString(0), r.GetString(1)));
+        if (matches.Count == 0)
+        {
+            var alias = A3ErpTableAliases.Resolve(name);
+            if (alias is not null)
+            {
+                var aliasMatches = await FindMatchesAsync(conn, schema, alias, ct);
+                if (aliasMatches.Count > 0)
+                {
+                    matches = aliasMatches;
+                    matchedVia = name;   // remember the friendly name the user typed
+                    name = alias;
+                }
+            }
         }
 
         if (matches.Count == 0)
@@ -64,13 +69,32 @@ public sealed class SqlServerMetadataProvider
                 $"El nombre '{name}' existe en varios esquemas ({string.Join(", ", matches.Select(m => m.Schema))}). " +
                 $"Indique el esquema en el nombre de la hoja (p. ej. 'dbo.{name}').");
 
-        var (foundSchema, foundName) = matches[0];
-        var table = await LoadTableAsync(conn, foundSchema, foundName, ct);
+        var (foundSchema, foundName, tableType) = matches[0];
+        var table = await LoadTableAsync(conn, foundSchema, foundName, tableType, matchedVia, ct);
         return TableLookup.Found(table);
     }
 
-    private static async Task<TableMetadata> LoadTableAsync(SqlConnection conn, string schema, string name, CancellationToken ct)
+    private static async Task<List<(string Schema, string Name, string Type)>> FindMatchesAsync(
+        SqlConnection conn, string? schema, string name, CancellationToken ct)
     {
+        var matches = new List<(string, string, string)>();
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = schema is null
+            ? "SELECT TABLE_SCHEMA, TABLE_NAME, TABLE_TYPE FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE IN ('BASE TABLE','VIEW') AND TABLE_NAME=@n"
+            : "SELECT TABLE_SCHEMA, TABLE_NAME, TABLE_TYPE FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE IN ('BASE TABLE','VIEW') AND TABLE_NAME=@n AND TABLE_SCHEMA=@s";
+        cmd.Parameters.AddWithValue("@n", name);
+        if (schema is not null) cmd.Parameters.AddWithValue("@s", schema);
+
+        await using var r = await cmd.ExecuteReaderAsync(ct);
+        while (await r.ReadAsync(ct))
+            matches.Add((r.GetString(0), r.GetString(1), r.GetString(2)));
+        return matches;
+    }
+
+    private static async Task<TableMetadata> LoadTableAsync(SqlConnection conn, string schema, string name,
+        string tableType, string? matchedVia, CancellationToken ct)
+    {
+        bool isView = tableType.Equals("VIEW", StringComparison.OrdinalIgnoreCase);
         var columns = new List<ColumnMetadata>();
 
         await using (var cmd = conn.CreateCommand())
@@ -132,13 +156,54 @@ ORDER BY kcu.ORDINAL_POSITION;";
                 pk.Add(r.GetString(0));
         }
 
+        bool writable = true;
+        string? notWritableReason = null;
+        if (isView)
+        {
+            (writable, notWritableReason) = await DetermineViewWritabilityAsync(conn, schema, name, ct);
+        }
+
         return new TableMetadata
         {
             Schema = schema,
             Name = name,
             Columns = columns,
             PrimaryKey = pk,
+            IsView = isView,
+            IsWritableTarget = writable,
+            NotWritableReason = notWritableReason,
+            MatchedVia = matchedVia,
         };
+    }
+
+    /// <summary>
+    /// A view can be written to only if it is intrinsically updatable (single base table, no aggregation)
+    /// or it has INSTEAD OF triggers. a3ERP's flat masters like CLIENTES are multi-table views without
+    /// such triggers, so a direct upsert is not possible.
+    /// </summary>
+    private static async Task<(bool Writable, string? Reason)> DetermineViewWritabilityAsync(
+        SqlConnection conn, string schema, string name, CancellationToken ct)
+    {
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+SELECT
+    (SELECT IS_UPDATABLE FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_SCHEMA=@s AND TABLE_NAME=@n) AS IsUpdatable,
+    (SELECT COUNT(*) FROM sys.triggers WHERE parent_id=OBJECT_ID(QUOTENAME(@s)+'.'+QUOTENAME(@n)) AND is_instead_of_trigger=1) AS InsteadOfCount;";
+        cmd.Parameters.AddWithValue("@s", schema);
+        cmd.Parameters.AddWithValue("@n", name);
+
+        await using var r = await cmd.ExecuteReaderAsync(ct);
+        if (await r.ReadAsync(ct))
+        {
+            bool isUpdatable = !r.IsDBNull(0) && r.GetString(0).Equals("YES", StringComparison.OrdinalIgnoreCase);
+            bool hasInsteadOf = !r.IsDBNull(1) && r.GetInt32(1) > 0;
+            if (isUpdatable || hasInsteadOf)
+                return (true, null);
+        }
+
+        return (false,
+            $"'{name}' es una vista no actualizable de a3ERP (el maestro está repartido en varias tablas). " +
+            "Este importador no puede escribir clientes/proveedores de este tipo directamente; usa la importación nativa de a3ERP para esa entidad.");
     }
 
     public static SqlTypeCategory Categorize(string sqlType) => sqlType.ToLowerInvariant() switch

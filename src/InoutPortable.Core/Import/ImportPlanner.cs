@@ -25,6 +25,24 @@ public sealed class ImportPlanner
         var mapped = new List<string>();
         var unknown = sheet.Columns.Where(c => !table.HasColumn(c)).ToList();
         var plan = NewPlan(sheet, table, keyColumns, mapped);
+
+        // Let the user know when a friendly sheet name was mapped to a real a3ERP object.
+        if (table.MatchedVia is not null)
+            plan.Issues.Add(new ValidationIssue
+            {
+                Sheet = sheet.TableName,
+                Message = $"La hoja '{table.MatchedVia}' se ha asociado automáticamente a la tabla {table.FullName}.",
+                Severity = ValidationSeverity.Warning,
+            });
+
+        // Non-writable target (e.g. an a3ERP multi-table view like CLIENTES) -> block early with the reason.
+        if (!table.IsWritableTarget)
+        {
+            plan.Issues.Add(ValidationIssue.Structural(sheet.TableName,
+                table.NotWritableReason ?? $"El objeto {table.FullName} no admite escritura."));
+            plan.IsBlocked = true;
+            return plan;
+        }
         foreach (var c in unknown)
             plan.Issues.Add(ValidationIssue.Structural(sheet.TableName,
                 $"La columna '{c}' no existe en la tabla {table.FullName}.", c));
