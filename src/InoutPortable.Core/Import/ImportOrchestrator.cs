@@ -91,10 +91,9 @@ public sealed class ImportOrchestrator
             if (interpreted.Sheet.Columns.Count == 0)
                 continue;
 
-            IReadOnlyList<string> keyColumns =
-                keyOverrides is not null && keyOverrides.TryGetValue(raw.Name, out var ov) && ov.Count > 0
-                    ? ov
-                    : table.PrimaryKey;
+            IReadOnlyList<string>? manualKey = null;
+            keyOverrides?.TryGetValue(raw.Name, out manualKey);
+            var keyColumns = KeyResolver.Resolve(table, interpreted.Sheet.Columns, manualKey);
 
             var plan = await _planner.BuildPlanAsync(interpreted.Sheet, table, keyColumns, lookup, ct);
             plan.HeaderRowNumber = interpreted.HeaderRowNumber;

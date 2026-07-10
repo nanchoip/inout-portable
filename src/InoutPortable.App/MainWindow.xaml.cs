@@ -19,6 +19,7 @@ public partial class MainWindow : Window
     private ImportPreview? _preview;
     private readonly Dictionary<string, TableImportPlan> _plansBySheet = new();
     private List<SummaryRow> _summaryRows = new();
+    private readonly Dictionary<string, IReadOnlyList<string>> _keyOverrides = new(StringComparer.OrdinalIgnoreCase);
 
     private static readonly Brush Ok = new SolidColorBrush(Color.FromRgb(0x16, 0xA3, 0x4A));
     private static readonly Brush Err = new SolidColorBrush(Color.FromRgb(0xDC, 0x26, 0x26));
@@ -165,7 +166,10 @@ public partial class MainWindow : Window
             Title = "Seleccionar archivo Excel",
         };
         if (dlg.ShowDialog() == true)
+        {
             FilePathBox.Text = dlg.FileName;
+            _keyOverrides.Clear(); // a new file starts with no manual key overrides
+        }
     }
 
     private async void Analyze_Click(object sender, RoutedEventArgs e)
@@ -189,7 +193,7 @@ public partial class MainWindow : Window
         try
         {
             var orchestrator = new ImportOrchestrator(settings);
-            _preview = await orchestrator.BuildPreviewAsync(FilePathBox.Text);
+            _preview = await orchestrator.BuildPreviewAsync(FilePathBox.Text, _keyOverrides);
             PopulatePreview(_preview);
         }
         catch (Exception ex)
@@ -268,6 +272,30 @@ public partial class MainWindow : Window
     {
         if (SummaryGrid.SelectedItem is SummaryRow row)
             PreviewSheetCombo.SelectedItem = row.Sheet;
+    }
+
+    private void DefineKey_Click(object sender, RoutedEventArgs e)
+    {
+        if (SummaryGrid.SelectedItem is not SummaryRow row || row.Plan is null)
+        {
+            SetStatus(ImportStatus, "Selecciona una hoja en el resumen para definir su clave.", Err);
+            return;
+        }
+
+        var plan = row.Plan;
+        if (plan.MappedColumns.Count == 0)
+        {
+            SetStatus(ImportStatus,
+                $"La hoja '{plan.Sheet}' no tiene columnas utilizables como clave (revisa los problemas detectados).", Err);
+            return;
+        }
+
+        var dlg = new KeySelectionDialog(plan.Sheet, plan.MappedColumns, plan.KeyColumns) { Owner = this };
+        if (dlg.ShowDialog() == true && dlg.SelectedKey is { Count: > 0 } key)
+        {
+            _keyOverrides[plan.Sheet] = key;
+            Analyze_Click(this, new RoutedEventArgs()); // re-analyze applying the chosen key
+        }
     }
 
     private void PreviewSheetCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)

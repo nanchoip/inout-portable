@@ -51,6 +51,9 @@ public sealed class TableMetadata
     /// <summary>Primary key column names in key order. Empty when the table has no detectable PK.</summary>
     public required IReadOnlyList<string> PrimaryKey { get; init; }
 
+    /// <summary>Other unique keys (unique indexes/constraints), each an ordered column list. Excludes the PK.</summary>
+    public IReadOnlyList<IReadOnlyList<string>> UniqueKeys { get; init; } = Array.Empty<IReadOnlyList<string>>();
+
     /// <summary>True when the destination object is a view rather than a base table.</summary>
     public bool IsView { get; init; }
 

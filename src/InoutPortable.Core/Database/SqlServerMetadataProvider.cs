@@ -156,6 +156,34 @@ ORDER BY kcu.ORDINAL_POSITION;";
                 pk.Add(r.GetString(0));
         }
 
+        // Other unique keys (unique indexes/constraints) that are not the primary key — used as
+        // alternative match keys when the PK isn't present in the Excel (e.g. surrogate id columns).
+        var uniqueKeys = new List<IReadOnlyList<string>>();
+        if (!isView)
+        {
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandText = @"
+SELECT i.name, c.name
+FROM sys.indexes i
+JOIN sys.index_columns ic ON ic.object_id = i.object_id AND ic.index_id = i.index_id AND ic.is_included_column = 0
+JOIN sys.columns c ON c.object_id = ic.object_id AND c.column_id = ic.column_id
+WHERE i.object_id = OBJECT_ID(QUOTENAME(@s) + '.' + QUOTENAME(@n)) AND i.is_unique = 1 AND i.is_primary_key = 0
+ORDER BY i.name, ic.key_ordinal;";
+            cmd.Parameters.AddWithValue("@s", schema);
+            cmd.Parameters.AddWithValue("@n", name);
+
+            var byIndex = new Dictionary<string, List<string>>();
+            await using var r = await cmd.ExecuteReaderAsync(ct);
+            while (await r.ReadAsync(ct))
+            {
+                var idx = r.GetString(0);
+                if (!byIndex.TryGetValue(idx, out var cols)) byIndex[idx] = cols = new List<string>();
+                cols.Add(r.GetString(1));
+            }
+            foreach (var cols in byIndex.Values)
+                uniqueKeys.Add(cols);
+        }
+
         bool writable = true;
         string? notWritableReason = null;
         if (isView)
@@ -169,6 +197,7 @@ ORDER BY kcu.ORDINAL_POSITION;";
             Name = name,
             Columns = columns,
             PrimaryKey = pk,
+            UniqueKeys = uniqueKeys,
             IsView = isView,
             IsWritableTarget = writable,
             NotWritableReason = notWritableReason,

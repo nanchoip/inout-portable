@@ -1,0 +1,36 @@
+<Window x:Class="InoutPortable.App.KeySelectionDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Definir columna(s) clave" Height="440" Width="460"
+        WindowStartupLocation="CenterOwner" Background="White">
+    <Grid Margin="18">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" x:Name="Intro" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10"
+                   Text="Marca la columna (o columnas) que identifican de forma única cada fila. Se usará para decidir si cada fila se inserta o se actualiza." />
+
+        <Border Grid.Row="1" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" CornerRadius="6">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="10">
+                <ItemsControl x:Name="ColumnsList">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <CheckBox Content="{Binding Name}" IsChecked="{Binding Checked}" Margin="0,3" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Border>
+
+        <Grid Grid.Row="2" Margin="0,12,0,0">
+            <TextBlock x:Name="Warn" Foreground="{StaticResource ErrorBrush}" VerticalAlignment="Center" />
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Cancelar" Style="{StaticResource Secondary}" Click="Cancel_Click" />
+                <Button Content="Aceptar" Margin="10,0,0,0" Click="Ok_Click" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>

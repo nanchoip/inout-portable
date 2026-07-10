@@ -86,10 +86,13 @@ InoutPortable.sln
    **tabla existente**, cada columna del Excel **existe** en la tabla, y **cada valor encaja con el
    tipo** de la columna (numérico, fecha, longitud máxima de texto, rango, nullabilidad, GUID,
    bit…). Los errores se reportan con **hoja, fila, columna y motivo**.
-4. **Upsert con PK autodetectada** — se consulta la **clave primaria real** en SQL Server. Si la
-   fila (según su PK) ya existe → `UPDATE`; si no → `INSERT`. Si la tabla **no tiene PK detectable**,
-   la hoja se marca como bloqueada y se avisa (se pueden indicar columnas clave — ver *Limitaciones*).
-   Soporta claves compuestas e `IDENTITY_INSERT` cuando el Excel trae el valor de identidad.
+4. **Upsert con clave autodetectada** — para decidir `INSERT` vs `UPDATE` se elige la clave en este
+   orden: (a) **clave manual** elegida por el usuario para esa hoja; (b) la **clave primaria** si sus
+   columnas están en el Excel; (c) el **índice único** más pequeño cuyas columnas estén todas en el
+   Excel (esto resuelve tablas con PK interna/surrogate como `CUENTAS`, que en la práctica se
+   identifica por `[PLACON, CUENTA]`). Si nada encaja, la hoja se **bloquea y se pide elegir la clave**
+   con el botón **"Definir clave de la hoja…"**. Soporta claves compuestas e `IDENTITY_INSERT` cuando
+   el Excel trae el valor de identidad.
 5. **Previsualización y confirmación** — resumen por hoja/tabla (nº a insertar, a actualizar, con
    error), vista previa de las filas con la operación prevista, y **confirmación explícita** antes
    de ejecutar.
@@ -207,10 +210,26 @@ dentro del propio ejecutable.
 - **Filas con error:** no bloquean toda la tabla; se **omiten** y se importan las válidas (salvo que
   el problema sea estructural: columna inexistente, falta la PK, etc., que sí bloquean la hoja).
 
-## 9. Limitaciones conocidas / posibles mejoras
+## 9. Publicar una nueva versión
 
-- **Selección manual de clave** para tablas sin PK detectable: el núcleo ya lo soporta
-  (`BuildPreviewAsync` acepta *overrides* de clave por hoja); falta exponer el diálogo en la UI.
+```powershell
+# 1) Reconstruir el ejecutable portable
+powershell -ExecutionPolicy Bypass -File build\publish.ps1
+
+# 2) Empaquetar exe + ejemplos en un zip (sin la carpeta data/)
+#    (ver dist\_release en el repo; o comprime dist\InoutPortable excluyendo data\)
+
+# 3) Crear el Release en GitHub con los binarios
+gh release create v1.1.0 `
+  "dist\inout-portable-v1.1.0-win-x64.zip" `
+  "dist\InoutPortable\InoutPortable.exe" `
+  --title "inout Portable v1.1.0" --notes "Novedades…"
+```
+
+## 10. Limitaciones conocidas / posibles mejoras
+
+- **Maestros repartidos de a3ERP** (clientes/proveedores como vistas no actualizables): no se pueden
+  crear con un upsert directo; requieren la importación nativa de a3ERP. La app lo detecta y avisa.
 - **Rendimiento:** el upsert va fila a fila (parametrizado y preparado). Es robusto y suficiente
   para importaciones típicas; para volúmenes muy grandes podría añadirse `SqlBulkCopy` a tabla
   temporal + `MERGE`.

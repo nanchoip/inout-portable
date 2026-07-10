@@ -112,7 +112,11 @@
                         <Button x:Name="AnalyzeBtn" Grid.Column="2" Content="Analizar" Margin="10,0,0,10" Click="Analyze_Click" />
                     </Grid>
 
-                    <TextBlock Grid.Row="1" Text="Resumen por tabla" Style="{StaticResource H2}" />
+                    <Grid Grid.Row="1">
+                        <TextBlock Text="Resumen por tabla" Style="{StaticResource H2}" VerticalAlignment="Center" />
+                        <Button x:Name="KeyBtn" Content="Definir clave de la hoja…" Style="{StaticResource Secondary}"
+                                HorizontalAlignment="Right" Padding="10,4" FontSize="11" Click="DefineKey_Click" />
+                    </Grid>
 
                     <!-- Summary grid -->
                     <DataGrid x:Name="SummaryGrid" Grid.Row="2" IsReadOnly="False"
