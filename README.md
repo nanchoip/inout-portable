@@ -91,6 +91,10 @@ InoutPortable.sln
      inout original al arrancar (`A3ErpCompanyProvider`, `SistemaIniReader`).
      - *Nota:* no se puede reutilizar el formulario nativo del BPL (requiere todo el runtime de a3ERP
        instalado e inicializado); esta réplica usa las mismas tablas/consultas y funciona sin a3ERP.
+   - **Flujo rápido (menos clics que el original):** "Buscar instancias A3ERP…", "Cargar servidor de
+     a3ERP…" o "Elegir empresa a3ERP…" **encadenan** todo: eligen servidor → piden las credenciales SQL
+     **solo si faltan** (la primera vez; luego quedan guardadas cifradas) → muestran las empresas → y al
+     elegir una, **prueban la conexión y la guardan automáticamente**. De un botón, conectado.
 3. **Validación previa** — antes de escribir nada se comprueba que: cada hoja corresponde a una
    **tabla existente**, cada columna del Excel **existe** en la tabla, y **cada valor encaja con el
    tipo** de la columna (numérico, fecha, longitud máxima de texto, rango, nullabilidad, GUID,

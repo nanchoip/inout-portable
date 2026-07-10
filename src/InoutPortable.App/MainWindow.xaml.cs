@@ -78,9 +78,13 @@ public partial class MainWindow : Window
             PortBox.Text = info.TcpPort?.ToString() ?? "";
             if (info.TcpPort is not null)
                 InstanceBox.Text = ""; // host + port is enough and more robust than a named instance
+            _systemDbFromIni = null;   // discovered over the network, not from a Sistema.ini
             ConnResult.Foreground = Muted;
             ConnResult.Text = $"Instancia seleccionada: {info.DisplayName}" +
                               (info.TcpPort is not null ? $" (puerto {info.TcpPort})." : ".");
+
+            // Chain straight into the company selector (asks for credentials only if missing).
+            OpenCompanySelectorFlow();
         }
     }
 
@@ -120,26 +124,31 @@ public partial class MainWindow : Window
 
         ConnResult.Foreground = Muted;
         ConnResult.Text = $"Cargado de Sistema.ini: servidor '{info.Server}'" +
-                          (string.IsNullOrWhiteSpace(info.SystemDatabase) ? "" : $", BD de sistema '{info.SystemDatabase}'") +
-                          ". Ahora introduce usuario/contraseña y pulsa 'Elegir empresa a3ERP…'.";
+                          (string.IsNullOrWhiteSpace(info.SystemDatabase) ? "" : $", BD de sistema '{info.SystemDatabase}'") + ".";
+
+        // Chain straight into the company selector (asks for credentials only if missing).
+        if (!string.IsNullOrWhiteSpace(HostBox.Text))
+            OpenCompanySelectorFlow();
     }
 
-    private void ChooseCompany_Click(object sender, RoutedEventArgs e)
+    private void ChooseCompany_Click(object sender, RoutedEventArgs e) => OpenCompanySelectorFlow();
+
+    /// <summary>Efficient chain: ensure server + credentials, pick the company, then auto test &amp; save.</summary>
+    private async void OpenCompanySelectorFlow()
     {
-        var settings = ReadForm();
-        if (string.IsNullOrWhiteSpace(settings.Host))
+        if (string.IsNullOrWhiteSpace(HostBox.Text))
         {
             ConnResult.Foreground = Err;
-            ConnResult.Text = "Introduce primero el servidor (y usuario/contraseña) para leer las empresas de a3ERP.";
+            ConnResult.Text = "Introduce o carga primero el servidor (usa 'Buscar instancias A3ERP…' o 'Cargar servidor de a3ERP…').";
             return;
         }
+        if (!EnsureCredentials()) return;
 
+        var settings = ReadForm();
         var dlg = new CompanySelectionDialog(settings, initialUser: null, systemDbOverride: _systemDbFromIni) { Owner = this };
         if (dlg.ShowDialog() == true && dlg.Selected is { } company)
         {
             DbBox.Text = company.DatabaseName;
-
-            // If the company points to a specific SQL Server, adopt it (server\instance).
             if (!string.IsNullOrWhiteSpace(company.ServerName))
             {
                 var parts = company.ServerName.Split('\\', 2);
@@ -147,10 +156,52 @@ public partial class MainWindow : Window
                 InstanceBox.Text = parts.Length > 1 ? parts[1] : "";
                 PortBox.Text = "";
             }
-
-            ConnResult.Foreground = Muted;
-            ConnResult.Text = $"Empresa seleccionada: {company.Description} → base de datos '{company.DatabaseName}'.";
+            await TestAndSaveAsync($"Empresa '{company.Description}' → BD '{company.DatabaseName}'.");
         }
+    }
+
+    /// <summary>Returns true if credentials are present; otherwise prompts once and writes them into the form.</summary>
+    private bool EnsureCredentials()
+    {
+        bool integrated = IntegratedBox.IsChecked == true;
+        if (integrated || (!string.IsNullOrWhiteSpace(UserBox.Text) && PassBox.Password.Length > 0))
+            return true;
+
+        var dlg = new CredentialsDialog(integrated, UserBox.Text.Trim(), PassBox.Password) { Owner = this };
+        if (dlg.ShowDialog() != true) return false;
+
+        IntegratedBox.IsChecked = dlg.IntegratedSecurity;
+        UserBox.Text = dlg.Username;
+        PassBox.Password = dlg.Password;
+        UpdateIntegratedState();
+        return true;
+    }
+
+    private async Task TestAndSaveAsync(string context)
+    {
+        var settings = ReadForm();
+        var errors = settings.Validate();
+        if (errors.Count > 0) { ConnResult.Foreground = Err; ConnResult.Text = string.Join("\n", errors); return; }
+
+        SetBusy(true, ConnResult, "Probando conexión y guardando…");
+        try
+        {
+            var result = await new ConnectionTester().TestAsync(settings);
+            if (result.Success)
+            {
+                _settingsStore.Save(settings);
+                UpdateConnStatus();
+                ConnResult.Foreground = Ok;
+                ConnResult.Text = $"{context} Conectado y guardado ✓ {result.Message}";
+            }
+            else
+            {
+                ConnResult.Foreground = Err;
+                ConnResult.Text = $"{context} No se pudo conectar: {result.Message}";
+            }
+        }
+        catch (Exception ex) { ConnResult.Foreground = Err; ConnResult.Text = ex.Message; }
+        finally { SetBusy(false, null, null); }
     }
 
     private void Integrated_Changed(object sender, RoutedEventArgs e) => UpdateIntegratedState();
