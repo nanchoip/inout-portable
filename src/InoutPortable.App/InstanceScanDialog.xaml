@@ -26,7 +26,7 @@
 
         <DataGrid x:Name="ResultsGrid" Grid.Row="2" MouseDoubleClick="Results_DoubleClick">
             <DataGrid.Columns>
-                <DataGridCheckBoxColumn Header="a3ERP" Binding="{Binding IsA3Erp}" Width="60" />
+                <DataGridCheckBoxColumn Header="a3ERP" Binding="{Binding IsA3Erp, Mode=OneWay}" Width="60" />
                 <DataGridTextColumn Header="Servidor" Binding="{Binding Server}" Width="*" />
                 <DataGridTextColumn Header="Instancia" Binding="{Binding Instance}" Width="140" />
                 <DataGridTextColumn Header="Puerto" Binding="{Binding TcpPort}" Width="80" />

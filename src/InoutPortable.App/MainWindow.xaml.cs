@@ -45,6 +45,10 @@ public partial class MainWindow : Window
         UpdateIntegratedState();
         UpdateConnStatus();
         RefreshHistory_Click(this, new RoutedEventArgs());
+
+        // Diagnostic: auto-open the instance scanner to reproduce issues headlessly.
+        if (Environment.GetCommandLineArgs().Contains("--selftest-scan"))
+            Dispatcher.BeginInvoke(() => new InstanceScanDialog { Owner = this }.Show());
     }
 
     // ---------- Connection tab ----------
