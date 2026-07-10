@@ -82,10 +82,15 @@ InoutPortable.sln
      SQL Server Browser (UDP 1434, protocolo SSRP): difusión en la subred local, barrido del /24 y
      consulta a una IP concreta. Como todas las instancias de a3ERP se llaman `A3ERP`, se muestran
      primero; al elegir una, se rellenan automáticamente el host y el puerto (`SqlInstanceScanner`).
-   - **Elegir empresa a3ERP** — botón que lee la base de datos de sistema de a3ERP (`…$SISTEMA`,
-     autodetectada) y lista las **empresas** registradas (tabla `EMPRESAS`, igual que el gestor nativo).
-     Al elegir una, fija automáticamente su base de datos de datos (`DATABASENAME`) y su servidor
-     (`SERVERNAME`) — así no hace falta saber el nombre técnico de la BD (`A3ErpCompanyProvider`).
+   - **Elegir empresa a3ERP** — réplica fiel del gestor de empresas nativo (sin el BPL de a3ERP): lee
+     la base de datos de sistema (`…$SISTEMA`, autodetectada) y lista las **empresas** (tabla
+     `EMPRESAS`) con **logo**, **buscador en vivo** y **filtro opcional por usuario de a3ERP**
+     (`__EMPRESASUSUARIO`, igual que la consulta nativa). Al elegir una, fija su base de datos
+     (`DATABASENAME`) y su servidor (`SERVERNAME`). Además, **"Cargar servidor de a3ERP (Sistema.ini)"**
+     lee el `Sistema.ini` del a3ERP instalado para prerrellenar servidor y BD de sistema, como hace el
+     inout original al arrancar (`A3ErpCompanyProvider`, `SistemaIniReader`).
+     - *Nota:* no se puede reutilizar el formulario nativo del BPL (requiere todo el runtime de a3ERP
+       instalado e inicializado); esta réplica usa las mismas tablas/consultas y funciona sin a3ERP.
 3. **Validación previa** — antes de escribir nada se comprueba que: cada hoja corresponde a una
    **tabla existente**, cada columna del Excel **existe** en la tabla, y **cada valor encaja con el
    tipo** de la columna (numérico, fecha, longitud máxima de texto, rango, nullabilidad, GUID,

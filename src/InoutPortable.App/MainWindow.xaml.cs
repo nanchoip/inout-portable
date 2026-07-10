@@ -84,6 +84,46 @@ public partial class MainWindow : Window
         }
     }
 
+    private string? _systemDbFromIni;
+
+    private void LoadFromIni_Click(object sender, RoutedEventArgs e)
+    {
+        var info = SistemaIniReader.LocateAndRead();
+        if (info is null)
+        {
+            // Not found automatically -> let the user point to it.
+            var dlg = new OpenFileDialog
+            {
+                Title = "Localiza el Sistema.ini de a3ERP",
+                Filter = "Sistema.ini|Sistema.ini|Archivos INI (*.ini)|*.ini|Todos los archivos (*.*)|*.*",
+            };
+            if (dlg.ShowDialog() == true)
+                info = SistemaIniReader.Parse(File.ReadAllText(dlg.FileName));
+        }
+
+        if (info is null || !info.HasAny)
+        {
+            ConnResult.Foreground = Err;
+            ConnResult.Text = "No se encontró/leyó Sistema.ini. (Solo existe donde a3ERP está instalado; " +
+                              "si no, usa 'Buscar instancias A3ERP…'.)";
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(info.Server))
+        {
+            var parts = info.Server.Split('\\', 2);
+            HostBox.Text = parts[0];
+            InstanceBox.Text = parts.Length > 1 ? parts[1] : "";
+            PortBox.Text = "";
+        }
+        _systemDbFromIni = info.SystemDatabase;
+
+        ConnResult.Foreground = Muted;
+        ConnResult.Text = $"Cargado de Sistema.ini: servidor '{info.Server}'" +
+                          (string.IsNullOrWhiteSpace(info.SystemDatabase) ? "" : $", BD de sistema '{info.SystemDatabase}'") +
+                          ". Ahora introduce usuario/contraseña y pulsa 'Elegir empresa a3ERP…'.";
+    }
+
     private void ChooseCompany_Click(object sender, RoutedEventArgs e)
     {
         var settings = ReadForm();
@@ -94,7 +134,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        var dlg = new CompanySelectionDialog(settings) { Owner = this };
+        var dlg = new CompanySelectionDialog(settings, initialUser: null, systemDbOverride: _systemDbFromIni) { Owner = this };
         if (dlg.ShowDialog() == true && dlg.Selected is { } company)
         {
             DbBox.Text = company.DatabaseName;

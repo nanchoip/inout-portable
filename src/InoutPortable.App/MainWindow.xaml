@@ -25,8 +25,11 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="24" MaxWidth="560" HorizontalAlignment="Left">
                         <TextBlock Text="Conexión a SQL Server" Style="{StaticResource H1}" />
-                        <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,14"
+                        <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10"
                                    Text="Introduce los datos del servidor destino. La contraseña se guarda cifrada (DPAPI) en el equipo." />
+
+                        <Button x:Name="IniBtn" Content="Cargar servidor de a3ERP (Sistema.ini)…" Style="{StaticResource Secondary}"
+                                HorizontalAlignment="Left" Padding="10,4" FontSize="11" Margin="0,0,0,14" Click="LoadFromIni_Click" />
 
                         <Grid>
                             <TextBlock Text="Servidor / host" Style="{StaticResource FieldLabel}" />

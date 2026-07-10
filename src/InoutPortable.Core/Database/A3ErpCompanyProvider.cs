@@ -21,16 +21,19 @@ public sealed class A3ErpCompanyProvider
 
     public A3ErpCompanyProvider(ConnectionSettings settings) => _settings = settings;
 
-    public async Task<CompanyListResult> ListCompaniesAsync(CancellationToken ct = default)
+    public async Task<CompanyListResult> ListCompaniesAsync(
+        string? a3ErpUser = null, string? systemDbOverride = null, CancellationToken ct = default)
     {
         try
         {
-            string? systemDb = await FindSystemDatabaseAsync(ct);
+            string? systemDb = !string.IsNullOrWhiteSpace(systemDbOverride)
+                ? systemDbOverride
+                : await FindSystemDatabaseAsync(ct);
             if (systemDb is null)
                 return new CompanyListResult(false, null, Array.Empty<A3ErpCompany>(),
                     "No se encontró la base de datos de sistema de a3ERP (…$SISTEMA con tabla EMPRESAS) en este servidor.");
 
-            var companies = await ReadCompaniesAsync(systemDb, ct);
+            var companies = await ReadCompaniesAsync(systemDb, a3ErpUser, ct);
             return new CompanyListResult(true, systemDb, companies, null);
         }
         catch (SqlException ex)
@@ -76,7 +79,7 @@ ORDER BY CASE WHEN name = 'A3ERP$SISTEMA' THEN 0 ELSE 1 END, name;";
         return null;
     }
 
-    private async Task<IReadOnlyList<A3ErpCompany>> ReadCompaniesAsync(string systemDb, CancellationToken ct)
+    private async Task<IReadOnlyList<A3ErpCompany>> ReadCompaniesAsync(string systemDb, string? a3ErpUser, CancellationToken ct)
     {
         var settings = _settings.Clone();
         settings.Database = systemDb;
@@ -84,12 +87,31 @@ ORDER BY CASE WHEN name = 'A3ERP$SISTEMA' THEN 0 ELSE 1 END, name;";
         await using var conn = new SqlConnection(settings.BuildConnectionString());
         await conn.OpenAsync(ct);
 
+        // Faithful permission filter (like a3ERP's native selector): if an a3ERP user is given and that
+        // user has explicit rows in __EMPRESASUSUARIO, restrict to those companies; otherwise show all.
+        bool applyUserFilter = false;
+        if (!string.IsNullOrWhiteSpace(a3ErpUser))
+        {
+            await using var check = conn.CreateCommand();
+            check.CommandText = @"
+SELECT CASE WHEN OBJECT_ID('dbo.__EMPRESASUSUARIO') IS NOT NULL
+            AND EXISTS (SELECT 1 FROM dbo.__EMPRESASUSUARIO WHERE USUARIO = @u)
+       THEN 1 ELSE 0 END;";
+            check.Parameters.AddWithValue("@u", a3ErpUser);
+            applyUserFilter = (int)(await check.ExecuteScalarAsync(ct) ?? 0) == 1;
+        }
+
         await using var cmd = conn.CreateCommand();
         cmd.CommandText = @"
-SELECT DESCRIPCION, DATABASENAME, SERVERNAME, IMAGENEMPRESA
-FROM dbo.EMPRESAS
-WHERE DATABASENAME IS NOT NULL AND DATABASENAME <> ''
-ORDER BY DESCRIPCION;";
+SELECT e.DESCRIPCION, e.DATABASENAME, e.SERVERNAME, e.IMAGENEMPRESA
+FROM dbo.EMPRESAS e
+WHERE e.DATABASENAME IS NOT NULL AND e.DATABASENAME <> ''"
+            + (applyUserFilter
+                ? " AND EXISTS (SELECT 1 FROM dbo.__EMPRESASUSUARIO eu WHERE eu.USUARIO = @u AND eu.IDEMP = e.IDEMP)"
+                : "")
+            + " ORDER BY e.DESCRIPCION;";
+        if (applyUserFilter)
+            cmd.Parameters.AddWithValue("@u", a3ErpUser!);
 
         var companies = new List<A3ErpCompany>();
         await using var r = await cmd.ExecuteReaderAsync(ct);
