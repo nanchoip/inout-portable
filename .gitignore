@@ -1,0 +1,17 @@
+## .NET build output
+bin/
+obj/
+dist/
+
+## Rider / VS
+.vs/
+.idea/
+*.user
+
+## App runtime data (created next to the exe)
+data/
+**/import-history.jsonl
+**/connection.json
+
+## Local Claude Code config (not part of the deliverable)
+.claude/

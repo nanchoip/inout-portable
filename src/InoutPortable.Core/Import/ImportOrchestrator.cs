@@ -1,0 +1,112 @@
+using InoutPortable.Core.Database;
+using InoutPortable.Core.Excel;
+using InoutPortable.Core.Models;
+
+namespace InoutPortable.Core.Import;
+
+/// <summary>
+/// Coordinates the full import flow: read the workbook, resolve each sheet to a table, validate and
+/// build a preview plan, and (on confirmation) execute the transactional upsert.
+/// </summary>
+public sealed class ImportOrchestrator
+{
+    private readonly ConnectionSettings _settings;
+    private readonly ExcelWorkbookReader _reader;
+    private readonly SheetInterpreter _interpreter;
+    private readonly SqlServerMetadataProvider _metadata;
+    private readonly ImportPlanner _planner;
+
+    public ImportOrchestrator(ConnectionSettings settings)
+    {
+        _settings = settings;
+        _reader = new ExcelWorkbookReader();
+        _interpreter = new SheetInterpreter();
+        _metadata = new SqlServerMetadataProvider(settings);
+        _planner = new ImportPlanner();
+    }
+
+    /// <summary>
+    /// Reads the workbook and builds a validated preview. <paramref name="keyOverrides"/> lets the
+    /// caller supply key columns for sheets whose table has no detectable primary key (keyed by sheet name).
+    /// </summary>
+    public async Task<ImportPreview> BuildPreviewAsync(
+        string filePath,
+        IReadOnlyDictionary<string, IReadOnlyList<string>>? keyOverrides = null,
+        IReadOnlyDictionary<string, int>? headerOverrides = null,
+        CancellationToken ct = default)
+    {
+        var preview = new ImportPreview { FileName = Path.GetFileName(filePath) };
+
+        IReadOnlyList<RawSheet> rawSheets;
+        try
+        {
+            rawSheets = _reader.ReadRaw(filePath);
+        }
+        catch (Exception ex)
+        {
+            preview.GlobalIssues.Add(ValidationIssue.Structural("(archivo)",
+                $"No se pudo leer el archivo Excel: {ex.Message}"));
+            return preview;
+        }
+
+        if (rawSheets.Count == 0)
+        {
+            preview.GlobalIssues.Add(ValidationIssue.Structural("(archivo)",
+                "El archivo no contiene hojas con datos."));
+            return preview;
+        }
+
+        var lookup = new SqlExistingKeyLookup(_settings);
+
+        foreach (var raw in rawSheets)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            if (raw.Rows.Count == 0 || raw.Rows.All(r => r.All(c => c.IsEmpty)))
+                continue; // empty/blank sheet -> nothing to import
+
+            TableLookup resolved;
+            try
+            {
+                resolved = await _metadata.LookupTableAsync(raw.Name, ct);
+            }
+            catch (Exception ex)
+            {
+                preview.GlobalIssues.Add(ValidationIssue.Structural(raw.Name,
+                    $"No se pudo consultar la tabla '{raw.Name}': {ex.Message}"));
+                continue;
+            }
+
+            if (resolved.Status != TableLookupStatus.Found || resolved.Table is null)
+            {
+                preview.GlobalIssues.Add(ValidationIssue.Structural(raw.Name,
+                    resolved.Message ?? $"No se pudo resolver la tabla '{raw.Name}'."));
+                continue;
+            }
+
+            var table = resolved.Table;
+
+            int? forcedHeader = headerOverrides is not null && headerOverrides.TryGetValue(raw.Name, out var h) ? h : null;
+            var interpreted = _interpreter.Interpret(raw, table, forcedHeader);
+            if (interpreted.Sheet.Columns.Count == 0)
+                continue;
+
+            IReadOnlyList<string> keyColumns =
+                keyOverrides is not null && keyOverrides.TryGetValue(raw.Name, out var ov) && ov.Count > 0
+                    ? ov
+                    : table.PrimaryKey;
+
+            var plan = await _planner.BuildPlanAsync(interpreted.Sheet, table, keyColumns, lookup, ct);
+            plan.HeaderRowNumber = interpreted.HeaderRowNumber;
+            preview.Tables.Add(plan);
+        }
+
+        return preview;
+    }
+
+    public Task<ImportResult> ExecuteAsync(ImportPreview preview, IProgress<string>? progress = null, CancellationToken ct = default)
+    {
+        var executor = new UpsertExecutor(_settings);
+        return executor.ExecuteAsync(preview, progress, ct);
+    }
+}
