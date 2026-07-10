@@ -62,6 +62,23 @@ public partial class MainWindow : Window
         TrustServerCertificate = TrustBox.IsChecked == true,
     };
 
+    private void ScanInstances_Click(object sender, RoutedEventArgs e)
+    {
+        var dlg = new InstanceScanDialog { Owner = this };
+        if (dlg.ShowDialog() == true && dlg.Selected is { } info)
+        {
+            HostBox.Text = info.Server;
+            InstanceBox.Text = info.Instance;
+            // Prefer the discovered TCP port so connecting doesn't depend on SQL Browser.
+            PortBox.Text = info.TcpPort?.ToString() ?? "";
+            if (info.TcpPort is not null)
+                InstanceBox.Text = ""; // host + port is enough and more robust than a named instance
+            ConnResult.Foreground = Muted;
+            ConnResult.Text = $"Instancia seleccionada: {info.DisplayName}" +
+                              (info.TcpPort is not null ? $" (puerto {info.TcpPort})." : ".");
+        }
+    }
+
     private void Integrated_Changed(object sender, RoutedEventArgs e) => UpdateIntegratedState();
 
     private void UpdateIntegratedState()

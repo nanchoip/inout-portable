@@ -28,7 +28,12 @@
                         <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,14"
                                    Text="Introduce los datos del servidor destino. La contraseña se guarda cifrada (DPAPI) en el equipo." />
 
-                        <TextBlock Text="Servidor / host" Style="{StaticResource FieldLabel}" />
+                        <Grid>
+                            <TextBlock Text="Servidor / host" Style="{StaticResource FieldLabel}" />
+                            <Button x:Name="ScanBtn" Content="Buscar instancias A3ERP…" Style="{StaticResource Secondary}"
+                                    HorizontalAlignment="Right" Padding="10,3" FontSize="11" Margin="0,-4,0,0"
+                                    Click="ScanInstances_Click" />
+                        </Grid>
                         <TextBox x:Name="HostBox" />
 
                         <Grid>

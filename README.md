@@ -38,6 +38,7 @@ InoutPortable.sln
 │  │  ├─ Database/
 │  │  │   ├─ ConnectionSettings.cs           Parámetros de conexión + cadena de conexión
 │  │  │   ├─ ConnectionTester.cs             "Probar conexión" (SELECT @@VERSION)
+│  │  │   ├─ SqlInstanceScanner.cs           Descubre instancias A3ERP en la red (SSRP/UDP 1434)
 │  │  │   └─ SqlServerMetadataProvider.cs    Resuelve tablas, columnas, tipos y PK (INFORMATION_SCHEMA/sys)
 │  │  ├─ Validation/
 │  │  │   ├─ TypeConverter.cs                Convierte/valida cada celda contra el tipo SQL
@@ -77,6 +78,10 @@ InoutPortable.sln
 2. **Conexión configurable** — pantalla de ajustes con host, instancia, puerto, BBDD, usuario y
    contraseña (o autenticación de Windows). Botón **Probar conexión**. Se guarda de forma
    persistente con la **contraseña cifrada (DPAPI, por usuario de Windows)**.
+   - **Buscar instancias A3ERP** — botón que descubre servidores SQL Server en la red mediante el
+     SQL Server Browser (UDP 1434, protocolo SSRP): difusión en la subred local, barrido del /24 y
+     consulta a una IP concreta. Como todas las instancias de a3ERP se llaman `A3ERP`, se muestran
+     primero; al elegir una, se rellenan automáticamente el host y el puerto (`SqlInstanceScanner`).
 3. **Validación previa** — antes de escribir nada se comprueba que: cada hoja corresponde a una
    **tabla existente**, cada columna del Excel **existe** en la tabla, y **cada valor encaja con el
    tipo** de la columna (numérico, fecha, longitud máxima de texto, rango, nullabilidad, GUID,
