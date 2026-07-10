@@ -178,8 +178,64 @@
                 </Grid>
             </TabItem>
 
-            <!-- ============ TAB 3: HISTORIAL ============ -->
-            <TabItem Header="3 · Historial">
+            <!-- ============ TAB 3: EXPORTAR ============ -->
+            <TabItem Header="3 · Exportar">
+                <Grid Margin="24">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
+                        <TextBlock Text="Exportar tablas a Excel" Style="{StaticResource H1}" VerticalAlignment="Center" />
+                        <Button x:Name="RefreshTablesBtn" Content="Cargar tablas" Style="{StaticResource Secondary}"
+                                Margin="16,0,0,0" Click="RefreshTables_Click" />
+                        <Button Content="Todos" Style="{StaticResource Secondary}" Margin="8,0,0,0" Click="SelectAllTables_Click" />
+                        <Button Content="Ninguno" Style="{StaticResource Secondary}" Margin="8,0,0,0" Click="SelectNoneTables_Click" />
+                    </StackPanel>
+
+                    <TextBlock Grid.Row="1" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,8"
+                               Text="Marca las tablas/vistas a exportar. Se genera un Excel con una hoja por tabla (cabecera = columnas), en el mismo formato que la importación." />
+
+                    <Grid Grid.Row="2" Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Filtrar:" VerticalAlignment="Center" Margin="0,0,8,0" Style="{StaticResource Muted}" />
+                        <TextBox Grid.Column="1" x:Name="TableFilterBox" Height="28" VerticalAlignment="Center" Margin="0"
+                                 TextChanged="TableFilter_TextChanged" />
+                        <TextBlock Grid.Column="2" Text="Máx. filas/tabla:" VerticalAlignment="Center" Margin="16,0,8,0" Style="{StaticResource Muted}" />
+                        <TextBox Grid.Column="3" x:Name="MaxRowsBox" Width="90" Height="28" VerticalAlignment="Center" Margin="0"
+                                 ToolTip="Opcional. Vacío = todas las filas." />
+                    </Grid>
+
+                    <Border Grid.Row="3" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" CornerRadius="6">
+                        <ListBox x:Name="TablesList" BorderThickness="0" SelectionMode="Extended"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <CheckBox Content="{Binding Name}" IsChecked="{Binding Checked, Mode=TwoWay}" Margin="2" />
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </Border>
+
+                    <Grid Grid.Row="4" Margin="0,12,0,0">
+                        <TextBlock x:Name="ExportStatus" VerticalAlignment="Center" TextWrapping="Wrap" />
+                        <Button x:Name="ExportBtn" Content="Exportar a Excel…" HorizontalAlignment="Right"
+                                Click="Export_Click" Background="{StaticResource OkBrush}" />
+                    </Grid>
+                </Grid>
+            </TabItem>
+
+            <!-- ============ TAB 4: HISTORIAL ============ -->
+            <TabItem Header="4 · Historial">
                 <Grid Margin="24">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />

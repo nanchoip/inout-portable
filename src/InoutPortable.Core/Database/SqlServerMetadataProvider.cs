@@ -25,6 +25,29 @@ public sealed class SqlServerMetadataProvider
 
     private SqlConnection CreateConnection() => new(_settings.BuildConnectionString());
 
+    /// <summary>Lists all base tables and views (for the export picker), schema-qualified when not dbo.</summary>
+    public async Task<IReadOnlyList<string>> ListTablesAsync(CancellationToken ct = default)
+    {
+        await using var conn = CreateConnection();
+        await conn.OpenAsync(ct);
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+SELECT TABLE_SCHEMA, TABLE_NAME
+FROM INFORMATION_SCHEMA.TABLES
+WHERE TABLE_TYPE IN ('BASE TABLE','VIEW')
+ORDER BY TABLE_NAME;";
+
+        var names = new List<string>();
+        await using var r = await cmd.ExecuteReaderAsync(ct);
+        while (await r.ReadAsync(ct))
+        {
+            var schema = r.GetString(0);
+            var name = r.GetString(1);
+            names.Add(schema.Equals("dbo", StringComparison.OrdinalIgnoreCase) ? name : $"{schema}.{name}");
+        }
+        return names;
+    }
+
     /// <summary>Resolves a worksheet name (optionally <c>schema.table</c>) to a single table's metadata.</summary>
     public async Task<TableLookup> LookupTableAsync(string sheetName, CancellationToken ct = default)
     {

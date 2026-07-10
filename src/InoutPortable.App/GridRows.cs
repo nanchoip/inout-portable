@@ -1,6 +1,22 @@
+using System.ComponentModel;
 using InoutPortable.Core.Models;
 
 namespace InoutPortable.App;
+
+/// <summary>A selectable table/view in the export list.</summary>
+public sealed class ExportTableItem : INotifyPropertyChanged
+{
+    public required string Name { get; init; }
+
+    private bool _checked;
+    public bool Checked
+    {
+        get => _checked;
+        set { if (_checked != value) { _checked = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Checked))); } }
+    }
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+}
 
 /// <summary>One row of the per-table summary grid.</summary>
 public sealed class SummaryRow

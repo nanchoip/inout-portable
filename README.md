@@ -1,9 +1,12 @@
-# inout Portable — Importador de Excel a Microsoft SQL Server
+# inout Portable — Importador/Exportador de Excel ⇄ Microsoft SQL Server
 
-Herramienta de escritorio para Windows que replica el concepto **inout de a3ERP**: cargas un
-archivo **Excel** donde **cada hoja = una tabla** de la base de datos y **la primera fila = los
-nombres de columna**, y la aplicación **inserta/actualiza (upsert)** esos datos en **Microsoft
-SQL Server**, validando todo antes de escribir y dentro de una **transacción con rollback**.
+Herramienta de escritorio para Windows que replica el concepto **inout de a3ERP** en **ambos
+sentidos**:
+- **Importar**: cargas un **Excel** donde **cada hoja = una tabla** y **la primera fila = las
+  columnas**, y la app **inserta/actualiza (upsert)** en **SQL Server**, validando todo antes de
+  escribir y dentro de una **transacción con rollback**.
+- **Exportar**: eliges tablas/vistas de SQL Server y genera un **Excel** (una hoja por tabla,
+  cabecera = columnas) en el **mismo formato** — así el ciclo exportar → editar → reimportar es directo.
 
 El resultado se entrega como **un único `.exe` portable** que se ejecuta con **doble click**,
 sin instalar .NET, sin configurar servidores y **sin necesidad del driver ODBC** de SQL Server.
@@ -179,6 +182,14 @@ dentro del propio ejecutable.
    **Actualizar** (upsert por PK). Cambia un valor en el Excel y reimporta para verlo reflejado.
 
 ---
+
+## 6b. Exportar (SQL Server → Excel)
+
+Pestaña **"Exportar"**: pulsa **"Cargar tablas"** (usa la conexión guardada), **marca** las tablas/vistas
+(con buscador y "Todos/Ninguno"), opcionalmente pon un **máximo de filas por tabla**, y **"Exportar a
+Excel…"**. Se genera un `.xlsx` con **una hoja por tabla** (cabecera = nombres de columna, tipos
+preservados), listo para editar y **reimportar**. Implementado en `ExportOrchestrator` +
+`ExcelWorkbookWriter`; soporta nombres amigables igual que la importación.
 
 ## 7. Convenciones del Excel (compatibles con las plantillas de a3ERP)
 

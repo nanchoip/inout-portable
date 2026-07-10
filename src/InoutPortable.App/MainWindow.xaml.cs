@@ -528,6 +528,123 @@ public partial class MainWindow : Window
         }
     }
 
+    // ---------- Export tab ----------
+
+    private List<ExportTableItem> _tables = new();
+
+    private async void RefreshTables_Click(object sender, RoutedEventArgs e)
+    {
+        var settings = _settingsStore.Load();
+        if (settings.Validate().Count > 0)
+        {
+            SetStatus(ExportStatus, "Configura y guarda primero la conexión en la pestaña 'Conexión'.", Err);
+            Tabs.SelectedIndex = 0;
+            return;
+        }
+
+        RefreshTablesBtn.IsEnabled = false;
+        SetStatus(ExportStatus, "Cargando lista de tablas…", Muted);
+        Cursor = System.Windows.Input.Cursors.Wait;
+        try
+        {
+            var names = await new SqlServerMetadataProvider(settings).ListTablesAsync();
+            _tables = names.Select(n => new ExportTableItem { Name = n }).ToList();
+            TablesList.ItemsSource = _tables;
+            ApplyTableFilter();
+            SetStatus(ExportStatus, $"{_tables.Count} tabla(s)/vista(s). Marca las que quieras exportar.", Muted);
+        }
+        catch (Exception ex)
+        {
+            SetStatus(ExportStatus, "No se pudo cargar la lista de tablas: " + ex.Message, Err);
+        }
+        finally
+        {
+            RefreshTablesBtn.IsEnabled = true;
+            Cursor = null;
+        }
+    }
+
+    private void TableFilter_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e) => ApplyTableFilter();
+
+    private void ApplyTableFilter()
+    {
+        if (TablesList.ItemsSource is null) return;
+        var view = System.Windows.Data.CollectionViewSource.GetDefaultView(TablesList.ItemsSource);
+        var text = TableFilterBox.Text?.Trim() ?? "";
+        view.Filter = text.Length == 0
+            ? null
+            : o => ((ExportTableItem)o).Name.Contains(text, StringComparison.OrdinalIgnoreCase);
+        view.Refresh();
+    }
+
+    private void SelectAllTables_Click(object sender, RoutedEventArgs e) => SetCheckedOnVisible(true);
+    private void SelectNoneTables_Click(object sender, RoutedEventArgs e) => SetCheckedOnVisible(false);
+
+    private void SetCheckedOnVisible(bool value)
+    {
+        if (TablesList.ItemsSource is null) return;
+        foreach (var item in System.Windows.Data.CollectionViewSource.GetDefaultView(TablesList.ItemsSource))
+            if (item is ExportTableItem t) t.Checked = value;
+    }
+
+    private async void Export_Click(object sender, RoutedEventArgs e)
+    {
+        var selected = _tables.Where(t => t.Checked).Select(t => t.Name).ToList();
+        if (selected.Count == 0)
+        {
+            SetStatus(ExportStatus, "Marca al menos una tabla para exportar.", Err);
+            return;
+        }
+
+        int? maxRows = int.TryParse(MaxRowsBox.Text.Trim(), out var m) && m > 0 ? m : null;
+
+        var save = new SaveFileDialog
+        {
+            Title = "Guardar exportación",
+            Filter = "Libro de Excel (*.xlsx)|*.xlsx",
+            FileName = $"export-a3erp-{DateTime.Now:yyyyMMdd-HHmm}.xlsx",
+        };
+        if (save.ShowDialog() != true) return;
+
+        var settings = _settingsStore.Load();
+        ExportBtn.IsEnabled = false;
+        Cursor = System.Windows.Input.Cursors.Wait;
+        SetStatus(ExportStatus, "Exportando…", Muted);
+        try
+        {
+            var orchestrator = new ExportOrchestrator(settings);
+            var progress = new Progress<string>(msg => ExportStatus.Text = msg);
+            var result = await orchestrator.ExportAsync(selected, save.FileName, maxRows, progress);
+
+            SetStatus(ExportStatus, result.Message ?? "", result.Success ? Ok : Err);
+
+            var failed = result.Tables.Where(t => !t.Success).ToList();
+            var detail = failed.Count == 0 ? "" : "\n\nCon errores:\n" + string.Join("\n", failed.Select(f => $"• {f.Table}: {f.Error}"));
+
+            if (result.Success)
+            {
+                var open = MessageBox.Show(result.Message + detail + "\n\n¿Abrir el archivo?",
+                    "Exportación completada", MessageBoxButton.YesNo, MessageBoxImage.Information);
+                if (open == MessageBoxResult.Yes)
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(save.FileName) { UseShellExecute = true });
+            }
+            else
+            {
+                MessageBox.Show((result.Message ?? "No se pudo exportar.") + detail, "Exportación",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+        catch (Exception ex)
+        {
+            SetStatus(ExportStatus, "Error al exportar: " + ex.Message, Err);
+        }
+        finally
+        {
+            ExportBtn.IsEnabled = true;
+            Cursor = null;
+        }
+    }
+
     // ---------- History tab ----------
 
     private void RefreshHistory_Click(object sender, RoutedEventArgs e)
