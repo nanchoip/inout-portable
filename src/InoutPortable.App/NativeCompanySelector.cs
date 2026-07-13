@@ -17,7 +17,12 @@ public static class NativeCompanySelector
     private const string RegSubKey = @"Software\A3\A3ERP";
     private const string RegValue = "Empresa actual";
 
-    /// <summary>Launches a3ERP, waits for the selection, and returns the chosen company description (or null).</summary>
+    /// <summary>
+    /// Launches a3ERP, waits for the user to pick a company in its native "Gestión de empresas" window,
+    /// and returns the chosen company description. Returns null if cancelled (a3ERP closed without a
+    /// selection). Detection is based on the real behaviour: a3ERP writes the choice to the registry
+    /// and closes the selector window while the app keeps running.
+    /// </summary>
     public static Task<string?> CaptureAsync(string exePath, int timeoutSeconds = 180, CancellationToken ct = default)
     {
         return Task.Run(() =>
@@ -33,16 +38,37 @@ public static class NativeCompanySelector
             }
             if (proc is null) return null;
 
+            string? initial = ReadEmpresaActual();
             string? captured = null;
+            bool selectorSeen = false;
             var deadline = DateTime.Now.AddSeconds(timeoutSeconds);
+
             while (DateTime.Now < deadline && !ct.IsCancellationRequested)
             {
-                Thread.Sleep(700);
-                try { proc.Refresh(); if (proc.HasExited) break; } catch { break; }
+                Thread.Sleep(600);
 
-                if (HasWindowContaining((uint)proc.Id, "InOut"))
+                // Registry changed -> a new company was selected.
+                var current = ReadEmpresaActual();
+                if (!string.IsNullOrEmpty(current) && !string.Equals(current, initial, StringComparison.OrdinalIgnoreCase))
                 {
-                    Thread.Sleep(400); // let a3ERP persist the choice to the registry
+                    captured = current;
+                    break;
+                }
+
+                bool selectorOpen = HasWindowContaining((uint)proc.Id, "empresas");
+                if (selectorOpen) selectorSeen = true;
+
+                bool exited;
+                try { proc.Refresh(); exited = proc.HasExited; } catch { exited = true; }
+
+                if (exited)
+                    break; // a3ERP closed: user cancelled the selector (no new selection)
+
+                // Selector was open and is now gone, but a3ERP keeps running -> a company was chosen
+                // (possibly the same one, so the registry value didn't change).
+                if (selectorSeen && !selectorOpen)
+                {
+                    Thread.Sleep(300);
                     captured = ReadEmpresaActual();
                     break;
                 }
@@ -50,7 +76,7 @@ public static class NativeCompanySelector
 
             try { if (!proc.HasExited) proc.Kill(entireProcessTree: true); } catch { }
 
-            return captured ?? ReadEmpresaActual();
+            return captured;
         }, ct);
     }
 
