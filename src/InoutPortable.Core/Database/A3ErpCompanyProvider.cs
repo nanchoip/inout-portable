@@ -92,13 +92,20 @@ ORDER BY CASE WHEN name = 'A3ERP$SISTEMA' THEN 0 ELSE 1 END, name;";
         bool applyUserFilter = false;
         if (!string.IsNullOrWhiteSpace(a3ErpUser))
         {
-            await using var check = conn.CreateCommand();
-            check.CommandText = @"
-SELECT CASE WHEN OBJECT_ID('dbo.__EMPRESASUSUARIO') IS NOT NULL
-            AND EXISTS (SELECT 1 FROM dbo.__EMPRESASUSUARIO WHERE USUARIO = @u)
-       THEN 1 ELSE 0 END;";
-            check.Parameters.AddWithValue("@u", a3ErpUser);
-            applyUserFilter = (int)(await check.ExecuteScalarAsync(ct) ?? 0) == 1;
+            // Check table existence and the user's rows in TWO steps: SQL Server resolves object names
+            // at compile time, so a single batch that references __EMPRESASUSUARIO would fail to compile
+            // (Msg 208) when the table is absent, even behind an OBJECT_ID guard.
+            await using var existsCmd = conn.CreateCommand();
+            existsCmd.CommandText = "SELECT OBJECT_ID('dbo.__EMPRESASUSUARIO')";
+            bool tableExists = (await existsCmd.ExecuteScalarAsync(ct)) is not (null or DBNull);
+
+            if (tableExists)
+            {
+                await using var countCmd = conn.CreateCommand();
+                countCmd.CommandText = "SELECT COUNT(*) FROM dbo.__EMPRESASUSUARIO WHERE USUARIO = @u";
+                countCmd.Parameters.AddWithValue("@u", a3ErpUser);
+                applyUserFilter = (int)(await countCmd.ExecuteScalarAsync(ct) ?? 0) > 0;
+            }
         }
 
         await using var cmd = conn.CreateCommand();

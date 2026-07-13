@@ -99,6 +99,9 @@ public sealed class SqlInstanceScanner
                         results[info.DisplayName] = info;
                 }
                 catch (OperationCanceledException) { break; }
+                // A previous datagram to an unreachable host can surface as WSAECONNRESET on the next
+                // receive; the socket is still usable, so keep listening for other servers' replies.
+                catch (SocketException) { }
             }
         }
         catch (SocketException) { }

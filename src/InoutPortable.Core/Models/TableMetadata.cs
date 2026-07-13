@@ -68,7 +68,7 @@ public sealed class TableMetadata
 
     public bool HasPrimaryKey => PrimaryKey.Count > 0;
 
-    public string FullName => $"[{Schema}].[{Name}]";
+    public string FullName => $"[{Schema.Replace("]", "]]")}].[{Name.Replace("]", "]]")}]";
 
     private Dictionary<string, ColumnMetadata>? _byName;
 

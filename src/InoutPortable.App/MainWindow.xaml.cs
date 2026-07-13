@@ -753,6 +753,11 @@ public partial class MainWindow : Window
         SaveBtn.IsEnabled = !busy;
         AnalyzeBtn.IsEnabled = !busy;
         BrowseBtn.IsEnabled = !busy;
+        // Connection helpers must not run concurrently (e.g. launching a second a3ERP mid-capture).
+        ScanBtn.IsEnabled = !busy;
+        IniBtn.IsEnabled = !busy;
+        CompanyBtn.IsEnabled = !busy;
+        NativeCompanyBtn.IsEnabled = !busy;
         if (status is not null && message is not null)
             SetStatus(status, message, Muted);
     }
