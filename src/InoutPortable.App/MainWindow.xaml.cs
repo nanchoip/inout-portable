@@ -89,6 +89,88 @@ public partial class MainWindow : Window
     }
 
     private string? _systemDbFromIni;
+    private string? _a3ExePath;
+
+    private async void NativeSelector_Click(object sender, RoutedEventArgs e)
+    {
+        // 1) Locate a3ERPInOut.exe (auto, or ask the user to browse once).
+        var exe = _a3ExePath ?? SistemaIniReader.LocateInOutExe();
+        if (exe is null || !File.Exists(exe))
+        {
+            var pick = new OpenFileDialog
+            {
+                Title = "Localiza a3ERPInOut.exe",
+                Filter = "a3ERPInOut.exe|a3ERPInOut.exe|Ejecutables (*.exe)|*.exe",
+            };
+            if (pick.ShowDialog() != true) return;
+            exe = pick.FileName;
+        }
+        _a3ExePath = exe;
+
+        // 2) Make sure we can later map the chosen company to its database (server + credentials).
+        if (string.IsNullOrWhiteSpace(HostBox.Text))
+        {
+            var info = SistemaIniReader.LocateAndRead();
+            if (info?.Server is { Length: > 0 })
+            {
+                var parts = info.Server.Split('\\', 2);
+                HostBox.Text = parts[0];
+                InstanceBox.Text = parts.Length > 1 ? parts[1] : "";
+                _systemDbFromIni = info.SystemDatabase;
+            }
+            else
+            {
+                ConnResult.Foreground = Err;
+                ConnResult.Text = "Indica primero el servidor (o usa 'Cargar servidor de a3ERP…').";
+                return;
+            }
+        }
+        if (!EnsureCredentials()) return;
+
+        // 3) Launch a3ERP's native selector and capture the chosen company.
+        SetBusy(true, ConnResult, "Abriendo a3ERP… elige la empresa en su ventana (se cerrará al elegir).");
+        try
+        {
+            var description = await NativeCompanySelector.CaptureAsync(exe, 180);
+            if (string.IsNullOrWhiteSpace(description))
+            {
+                SetStatus(ConnResult, "No se capturó ninguna empresa (cancelado o se agotó el tiempo).", Err);
+                return;
+            }
+
+            // 4) Map DESCRIPCION -> DATABASENAME against A3ERP$SISTEMA and fill the connection.
+            var settings = ReadForm();
+            var result = await new A3ErpCompanyProvider(settings).ListCompaniesAsync(null, _systemDbFromIni);
+            var match = result.Companies.FirstOrDefault(c =>
+                c.Description.Trim().Equals(description.Trim(), StringComparison.OrdinalIgnoreCase));
+
+            if (match is not null)
+            {
+                DbBox.Text = match.DatabaseName;
+                if (!string.IsNullOrWhiteSpace(match.ServerName))
+                {
+                    var parts = match.ServerName.Split('\\', 2);
+                    HostBox.Text = parts[0];
+                    InstanceBox.Text = parts.Length > 1 ? parts[1] : "";
+                    PortBox.Text = "";
+                }
+                await TestAndSaveAsync($"Empresa '{description}' (selector nativo de a3ERP) →");
+            }
+            else
+            {
+                DbBox.Text = description; // fallback: use the captured value as-is
+                SetStatus(ConnResult, $"Empresa capturada '{description}', pero no se encontró en {(_systemDbFromIni ?? "A3ERP$SISTEMA")}. Revisa el nombre de la base de datos.", Err);
+            }
+        }
+        catch (Exception ex)
+        {
+            SetStatus(ConnResult, "Error con el selector nativo: " + ex.Message, Err);
+        }
+        finally
+        {
+            SetBusy(false, null, null);
+        }
+    }
 
     private void LoadFromIni_Click(object sender, RoutedEventArgs e)
     {

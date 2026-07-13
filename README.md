@@ -94,6 +94,12 @@ InoutPortable.sln
      inout original al arrancar (`A3ErpCompanyProvider`, `SistemaIniReader`).
      - *Nota:* no se puede reutilizar el formulario nativo del BPL (requiere todo el runtime de a3ERP
        instalado e inicializado); esta réplica usa las mismas tablas/consultas y funciona sin a3ERP.
+   - **Selector nativo de a3ERP** — si a3ERP está instalado en el equipo, este botón **lanza el
+     `a3ERPInOut.exe` real**, esperas a elegir la empresa en **su propia ventana nativa**, y la app
+     captura la elección del registro (`HKCU\Software\A3\A3ERP\Empresa actual`), cierra a3ERP y mapea
+     `DESCRIPCION → DATABASENAME`. Es "el selector de verdad" (no se puede invocar el formulario del
+     BPL directamente porque requiere el runtime de a3ERP arrancado; se usa el exe real y se captura
+     la elección — `NativeCompanySelector`).
    - **Flujo rápido (menos clics que el original):** "Buscar instancias A3ERP…", "Cargar servidor de
      a3ERP…" o "Elegir empresa a3ERP…" **encadenan** todo: eligen servidor → piden las credenciales SQL
      **solo si faltan** (la primera vez; luego quedan guardadas cifradas) → muestran las empresas → y al

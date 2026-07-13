@@ -57,9 +57,12 @@
 
                         <Grid>
                             <TextBlock Text="Base de datos" Style="{StaticResource FieldLabel}" />
-                            <Button x:Name="CompanyBtn" Content="Elegir empresa a3ERP…" Style="{StaticResource Secondary}"
-                                    HorizontalAlignment="Right" Padding="10,3" FontSize="11" Margin="0,-4,0,0"
-                                    Click="ChooseCompany_Click" />
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,-4,0,0">
+                                <Button x:Name="NativeCompanyBtn" Content="Selector nativo de a3ERP…" Style="{StaticResource Secondary}"
+                                        Padding="10,3" FontSize="11" Click="NativeSelector_Click" />
+                                <Button x:Name="CompanyBtn" Content="Elegir empresa a3ERP…" Style="{StaticResource Secondary}"
+                                        Padding="10,3" FontSize="11" Margin="8,0,0,0" Click="ChooseCompany_Click" />
+                            </StackPanel>
                         </Grid>
                         <TextBox x:Name="DbBox" />
 

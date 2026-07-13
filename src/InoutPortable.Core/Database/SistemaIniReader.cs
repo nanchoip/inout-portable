@@ -40,14 +40,26 @@ public static class SistemaIniReader
     }
 
     /// <summary>Tries to locate Sistema.ini inside a local a3ERP installation. Returns null if not found.</summary>
-    public static string? Locate()
+    public static string? Locate() => LocateFile("Sistema.ini");
+
+    /// <summary>Tries to locate a3ERPInOut.exe inside a local a3ERP installation. Returns null if not found.</summary>
+    public static string? LocateInOutExe()
+    {
+        // The usual install path first, then a scan of a3* folders.
+        var standard = @"C:\Program Files (x86)\A3\A3Erp\a3ERPInOut.exe";
+        if (File.Exists(standard)) return standard;
+        return LocateFile("a3ERPInOut.exe");
+    }
+
+    /// <summary>Searches a3ERP-named install folders for a file (bounded scan to stay fast).</summary>
+    public static string? LocateFile(string fileName)
     {
         foreach (var dir in CandidateDirectories())
         {
             try
             {
                 if (!Directory.Exists(dir)) continue;
-                var hit = Directory.EnumerateFiles(dir, "Sistema.ini", SearchOption.AllDirectories).FirstOrDefault();
+                var hit = Directory.EnumerateFiles(dir, fileName, SearchOption.AllDirectories).FirstOrDefault();
                 if (hit is not null) return hit;
             }
             catch { /* access denied / long paths -> skip this root */ }
