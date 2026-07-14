@@ -21,8 +21,17 @@
     <Description>Importador de Excel a Microsoft SQL Server (estilo inout de a3ERP)</Description>
     <SatelliteResourceLanguages>en;es</SatelliteResourceLanguages>
 
+    <!-- App/exe icon (Balatro "Blueprint" card). -->
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+
     <!-- Publish-time options (single-file, self-contained) live in build/publish.ps1 so that
          normal `dotnet build` / `dotnet test` stay framework-dependent and fast. -->
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Available at runtime for the window title-bar icon (see MainWindow.xaml). -->
+    <Resource Include="Assets\app.png" />
+    <Resource Include="Assets\app.ico" />
+  </ItemGroup>
 
 </Project>
