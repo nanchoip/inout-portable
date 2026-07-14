@@ -99,6 +99,12 @@ public sealed class UpsertExecutor
         if (identityInsert)
             await ExecuteRawAsync(conn, tx, $"SET IDENTITY_INSERT {table.FullName} ON", ct);
 
+        // Suspend CHECK/FK constraints for the load, exactly as the original a3ERP inout does
+        // (`ALTER TABLE ... NOCHECK CONSTRAINT ALL`). a3ERP guards columns such as account references
+        // with cross-table CHECK constraints; exported/imported data can legitimately reference values
+        // this instance doesn't hold, so the constraints are disabled for the write and re-enabled after.
+        await ExecuteRawAsync(conn, tx, $"ALTER TABLE {table.FullName} NOCHECK CONSTRAINT ALL", ct);
+
         try
         {
             using var insertCmd = BuildInsertCommand(conn, tx, table, insertCols);
@@ -146,6 +152,10 @@ public sealed class UpsertExecutor
                 await ExecuteRawAsync(conn, tx, $"SET IDENTITY_INSERT {table.FullName} OFF", ct);
         }
 
+        // Re-enable the constraints without re-validating existing rows (same as the original inout).
+        // On failure the surrounding transaction rolls back, which reverts the NOCHECK automatically.
+        await ExecuteRawAsync(conn, tx, $"ALTER TABLE {table.FullName} CHECK CONSTRAINT ALL", ct);
+
         result.Success = true;
         return result;
     }
@@ -190,6 +200,10 @@ public sealed class UpsertExecutor
             case SqlDbType.VarChar or SqlDbType.NVarChar or SqlDbType.Char or SqlDbType.NChar
                 or SqlDbType.Binary or SqlDbType.VarBinary:
                 p.Size = col.MaxLength is > 0 ? col.MaxLength.Value : -1; // -1 => MAX
+                break;
+            case SqlDbType.Text or SqlDbType.NText or SqlDbType.Image or SqlDbType.Xml:
+                // LOB types are variable-length; Prepare() rejects Size 0, so use -1 (MAX).
+                p.Size = -1;
                 break;
             case SqlDbType.Decimal:
                 p.Precision = col.Precision ?? 18;
