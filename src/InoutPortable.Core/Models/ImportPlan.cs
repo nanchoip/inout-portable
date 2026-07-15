@@ -1,3 +1,5 @@
+using InoutPortable.Core.Import;
+
 namespace InoutPortable.Core.Models;
 
 public enum RowOperation
@@ -44,6 +46,20 @@ public sealed class TableImportPlan
 
     /// <summary>When true the sheet cannot be imported (e.g. missing table, no key, structural errors).</summary>
     public bool IsBlocked { get; set; }
+
+    // --- Client import (CLIENTES view -> __ORGANIZACION + __CLIENTES). Null/false for normal tables. ---
+
+    /// <summary>True when this plan targets the CLIENTES view and must be written via the client writer.</summary>
+    public bool IsClientImport { get; set; }
+
+    /// <summary>Sheet column -> destination (organization or client base column). Set for client imports.</summary>
+    public IReadOnlyDictionary<string, ClientTarget>? ClientTargets { get; set; }
+
+    /// <summary>Metadata of the __CLIENTES base table (client import only).</summary>
+    public TableMetadata? ClientTable { get; set; }
+
+    /// <summary>Metadata of the __ORGANIZACION base table (client import only).</summary>
+    public TableMetadata? OrgTable { get; set; }
 
     public int InsertCount => Rows.Count(r => r.Operation == RowOperation.Insert);
     public int UpdateCount => Rows.Count(r => r.Operation == RowOperation.Update);

@@ -75,6 +75,10 @@ public sealed class UpsertExecutor
     private static async Task<TableImportResult> ExecuteTableAsync(
         SqlConnection conn, SqlTransaction tx, TableImportPlan plan, CancellationToken ct)
     {
+        // Clients are split across __ORGANIZACION + __CLIENTES with generated IDORG — a dedicated writer.
+        if (plan.IsClientImport)
+            return await ClientWriter.ExecuteAsync(conn, tx, plan, ct);
+
         var table = plan.Table;
         var result = new TableImportResult
         {
@@ -191,7 +195,7 @@ public sealed class UpsertExecutor
 
     /// <summary>Creates a parameter with an explicit SqlDbType (and size/precision) so Prepare() works
     /// and the value goes on the wire as the exact column type.</summary>
-    private static SqlParameter CreateParameter(string name, ColumnMetadata col)
+    internal static SqlParameter CreateParameter(string name, ColumnMetadata col)
     {
         var p = new SqlParameter(name, MapSqlDbType(col.SqlType)) { Value = DBNull.Value, IsNullable = true };
 
@@ -245,7 +249,7 @@ public sealed class UpsertExecutor
         _ => SqlDbType.NVarChar,
     };
 
-    private static async Task ExecuteRawAsync(SqlConnection conn, SqlTransaction tx, string sql, CancellationToken ct)
+    internal static async Task ExecuteRawAsync(SqlConnection conn, SqlTransaction tx, string sql, CancellationToken ct)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
@@ -264,5 +268,5 @@ public sealed class UpsertExecutor
     private static bool IsNull(IReadOnlyDictionary<string, object?> values, string col) =>
         !values.TryGetValue(col, out var v) || v is null || v is DBNull;
 
-    private static string Bracket(string identifier) => "[" + identifier.Replace("]", "]]") + "]";
+    internal static string Bracket(string identifier) => "[" + identifier.Replace("]", "]]") + "]";
 }

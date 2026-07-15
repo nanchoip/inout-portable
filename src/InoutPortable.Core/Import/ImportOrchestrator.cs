@@ -15,6 +15,7 @@ public sealed class ImportOrchestrator
     private readonly SheetInterpreter _interpreter;
     private readonly SqlServerMetadataProvider _metadata;
     private readonly ImportPlanner _planner;
+    private readonly ClientImportPlanner _clientPlanner;
 
     public ImportOrchestrator(ConnectionSettings settings)
     {
@@ -23,6 +24,7 @@ public sealed class ImportOrchestrator
         _interpreter = new SheetInterpreter();
         _metadata = new SqlServerMetadataProvider(settings);
         _planner = new ImportPlanner();
+        _clientPlanner = new ClientImportPlanner(settings);
     }
 
     /// <summary>
@@ -90,6 +92,24 @@ public sealed class ImportOrchestrator
             var interpreted = _interpreter.Interpret(raw, table, forcedHeader);
             if (interpreted.Sheet.Columns.Count == 0)
                 continue;
+
+            // CLIENTES is a non-writable view over __CLIENTES + __ORGANIZACION; route it to the
+            // dedicated client importer instead of blocking it as a read-only view.
+            if (table.Name.Equals("CLIENTES", StringComparison.OrdinalIgnoreCase))
+            {
+                var cliMeta = (await _metadata.LookupTableAsync("__CLIENTES", ct)).Table;
+                var orgMeta = (await _metadata.LookupTableAsync("__ORGANIZACION", ct)).Table;
+                if (cliMeta is null || orgMeta is null)
+                {
+                    preview.GlobalIssues.Add(ValidationIssue.Structural(raw.Name,
+                        "No se encontraron las tablas base de clientes (__CLIENTES/__ORGANIZACION) en esta base de datos."));
+                    continue;
+                }
+                var clientPlan = await _clientPlanner.BuildPlanAsync(interpreted.Sheet, table, cliMeta, orgMeta, ct);
+                clientPlan.HeaderRowNumber = interpreted.HeaderRowNumber;
+                preview.Tables.Add(clientPlan);
+                continue;
+            }
 
             IReadOnlyList<string>? manualKey = null;
             keyOverrides?.TryGetValue(raw.Name, out manualKey);
