@@ -93,21 +93,22 @@ public sealed class ImportOrchestrator
             if (interpreted.Sheet.Columns.Count == 0)
                 continue;
 
-            // CLIENTES is a non-writable view over __CLIENTES + __ORGANIZACION; route it to the
-            // dedicated client importer instead of blocking it as a read-only view.
-            if (table.Name.Equals("CLIENTES", StringComparison.OrdinalIgnoreCase))
+            // CLIENTES/PROVEED are non-writable views over __X + __ORGANIZACION; route them to the
+            // dedicated third-party importer instead of blocking them as read-only views.
+            var kindInfo = ThirdPartyKindInfo.ForView(table.Name);
+            if (kindInfo is not null)
             {
-                var cliMeta = (await _metadata.LookupTableAsync("__CLIENTES", ct)).Table;
+                var baseMeta = (await _metadata.LookupTableAsync(kindInfo.BaseTable, ct)).Table;
                 var orgMeta = (await _metadata.LookupTableAsync("__ORGANIZACION", ct)).Table;
-                if (cliMeta is null || orgMeta is null)
+                if (baseMeta is null || orgMeta is null)
                 {
                     preview.GlobalIssues.Add(ValidationIssue.Structural(raw.Name,
-                        "No se encontraron las tablas base de clientes (__CLIENTES/__ORGANIZACION) en esta base de datos."));
+                        $"No se encontraron las tablas base ({kindInfo.BaseTable}/__ORGANIZACION) en esta base de datos."));
                     continue;
                 }
-                var clientPlan = await _clientPlanner.BuildPlanAsync(interpreted.Sheet, table, cliMeta, orgMeta, ct);
-                clientPlan.HeaderRowNumber = interpreted.HeaderRowNumber;
-                preview.Tables.Add(clientPlan);
+                var tpPlan = await _clientPlanner.BuildPlanAsync(interpreted.Sheet, table, kindInfo, baseMeta, orgMeta, ct);
+                tpPlan.HeaderRowNumber = interpreted.HeaderRowNumber;
+                preview.Tables.Add(tpPlan);
                 continue;
             }
 

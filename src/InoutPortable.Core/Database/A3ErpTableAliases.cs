@@ -15,8 +15,8 @@ public static class A3ErpTableAliases
     {
         ["cliente"] = "CLIENTES",
         ["clientes"] = "CLIENTES",
-        ["proveedor"] = "PROVEEDO",
-        ["proveedores"] = "PROVEEDO",
+        ["proveedor"] = "PROVEED",
+        ["proveedores"] = "PROVEED",
         ["articulo"] = "ARTICULO",
         ["articulos"] = "ARTICULO",
         ["producto"] = "ARTICULO",

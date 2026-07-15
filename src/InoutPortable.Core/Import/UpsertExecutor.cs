@@ -75,8 +75,8 @@ public sealed class UpsertExecutor
     private static async Task<TableImportResult> ExecuteTableAsync(
         SqlConnection conn, SqlTransaction tx, TableImportPlan plan, CancellationToken ct)
     {
-        // Clients are split across __ORGANIZACION + __CLIENTES with generated IDORG — a dedicated writer.
-        if (plan.IsClientImport)
+        // Clients/providers are split across __ORGANIZACION + __CLIENTES/__PROVEED with generated IDORG.
+        if (plan.IsThirdPartyImport)
             return await ClientWriter.ExecuteAsync(conn, tx, plan, ct);
 
         var table = plan.Table;

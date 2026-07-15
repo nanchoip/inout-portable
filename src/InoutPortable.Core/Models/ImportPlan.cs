@@ -47,18 +47,21 @@ public sealed class TableImportPlan
     /// <summary>When true the sheet cannot be imported (e.g. missing table, no key, structural errors).</summary>
     public bool IsBlocked { get; set; }
 
-    // --- Client import (CLIENTES view -> __ORGANIZACION + __CLIENTES). Null/false for normal tables. ---
+    // --- Third-party import (CLIENTES/PROVEED view -> __ORGANIZACION + __CLIENTES/__PROVEED). ---
 
-    /// <summary>True when this plan targets the CLIENTES view and must be written via the client writer.</summary>
-    public bool IsClientImport { get; set; }
+    /// <summary>True when this plan targets a client/provider view and must go through the client writer.</summary>
+    public bool IsThirdPartyImport { get; set; }
 
-    /// <summary>Sheet column -> destination (organization or client base column). Set for client imports.</summary>
+    /// <summary>Base third-party table to write (__CLIENTES or __PROVEED).</summary>
+    public string? ThirdPartyBaseTable { get; set; }
+
+    /// <summary>Code column of the base table (CODCLI or CODPRO).</summary>
+    public string? ThirdPartyCodeColumn { get; set; }
+
+    /// <summary>Sheet column -> destination (organization or base column). Set for third-party imports.</summary>
     public IReadOnlyDictionary<string, ClientTarget>? ClientTargets { get; set; }
 
-    /// <summary>Metadata of the __CLIENTES base table (client import only).</summary>
-    public TableMetadata? ClientTable { get; set; }
-
-    /// <summary>Metadata of the __ORGANIZACION base table (client import only).</summary>
+    /// <summary>Metadata of the __ORGANIZACION table (third-party import only).</summary>
     public TableMetadata? OrgTable { get; set; }
 
     public int InsertCount => Rows.Count(r => r.Operation == RowOperation.Insert);
